@@ -1,0 +1,220 @@
+<html>
+
+<head>
+  <script>
+    (() => {
+      function fetchIdentity(partnerId) {
+        const url = new URL("https://ident.mygaru.com/v2/id");
+        url.searchParams.append("partner_id", partnerId);
+        return fetch(url.toString(), { method: "GET", credentials: "include" })
+          .then(r => r.json());
+      }
+
+      function showMessage(html) {
+        overlay.innerHTML = html;
+      }
+
+      const overlay = document.createElement("div");
+      Object.assign(overlay.style, {
+        position: "fixed",
+        inset: "0",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        background: "rgba(0,0,0,.65)",
+        color: "#fff",
+        fontFamily: "system-ui, sans-serif",
+        fontSize: "18px",
+        textAlign: "center",
+        padding: "24px",
+        zIndex: "2147483647",
+      });
+      document.addEventListener("DOMContentLoaded", () => {
+        document.body.prepend(overlay);
+      });
+
+      const PARTNER_ID = "019b6ee8-5573-7205-8035-089f825abf93";
+      const NULL_CARRIER = "00000000-0000-0000-0000-000000000000";
+      //const API_BASE = `${window.location.protocol}//options.mygaru.com`;
+      const API_BASE = `https://options.mygaru.com`;
+
+      showMessage(`<p>Checking your identity ...</p>`);
+
+      function renderChoiceScreen(otp, isOptedOut) {
+        const outBtnStyle = isOptedOut
+          ? "padding:12px 32px;font-size:16px;cursor:not-allowed;font-weight:bold;background:#b0bec5;color:#fff;border:none;border-radius:6px;opacity:0.65"
+          : "padding:12px 32px;font-size:16px;cursor:pointer;font-weight:bold;background:#e53935;color:#fff;border:none;border-radius:6px;box-shadow:0 2px 4px rgba(0,0,0,0.2)";
+        const outBtnDisabled = isOptedOut ? 'disabled="disabled"' : '';
+
+        const inBtnStyle = isOptedOut
+          ? "padding:12px 32px;font-size:16px;cursor:pointer;font-weight:bold;background:#43a047;color:#fff;border:none;border-radius:6px;box-shadow:0 2px 4px rgba(0,0,0,0.2)"
+          : "padding:12px 32px;font-size:16px;cursor:not-allowed;font-weight:bold;background:#b0bec5;color:#fff;border:none;border-radius:6px;opacity:0.65";
+        const inBtnDisabled = isOptedOut ? '' : 'disabled="disabled"';
+
+        showMessage(`
+          <p style="max-width:480px;line-height:1.5;font-weight:bold;font-size:22px;margin-bottom:24px">
+            myGaru Privacy Manager
+          </p>
+          <p style="max-width:480px;line-height:1.5;margin-bottom:24px">
+            Please select your preference for the myGaru secure perimeter:
+          </p>
+          <div style="display:flex;gap:16px">
+            <button id="mgOptOutBtn" ${outBtnDisabled} style="${outBtnStyle}">
+              Go insecure<br><span style="font-size:12px;font-weight:normal">(opt-out)</span>
+            </button>
+            <button id="mgOptInBtn" ${inBtnDisabled} style="${inBtnStyle}">
+              Go secure<br><span style="font-size:12px;font-weight:normal">(opt-in)</span>
+            </button>
+          </div>
+        `);
+
+        if (!isOptedOut) {
+          document.getElementById("mgOptOutBtn").addEventListener("click", () => {
+            renderConfirmScreen(otp);
+          });
+        }
+
+        if (isOptedOut) {
+          document.getElementById("mgOptInBtn").addEventListener("click", () => {
+            showMessage("<p>Processing your opt-in request...</p>");
+            fetch(`${API_BASE}/optin/${encodeURIComponent(otp)}`)
+              .then(res => {
+                if (res.status === 200) {
+                  showMessage(`
+                    <p style="font-size:24px;font-weight:bold;color:#43a047;margin-bottom:20px">We are glad you are back</p>
+                    <a href="#" id="mgReturnLink" style="color:#fff;font-size:16px;text-decoration:underline;cursor:pointer">
+                      Return to previous page
+                    </a>
+                  `);
+                  document.getElementById("mgReturnLink").addEventListener("click", (e) => {
+                    e.preventDefault();
+                    if (history.length > 1) {
+                      history.back();
+                    } else {
+                      window.close();
+                    }
+                  });
+                } else {
+                  showMessage("<p style='color:#e53935'>An error occurred during opt-in.</p>");
+                }
+              })
+              .catch(() => {
+                showMessage("<p style='color:#e53935'>Network error or server unreachable.</p>");
+              });
+          });
+        }
+      }
+
+      function renderConfirmScreen(otp) {
+        showMessage(`
+          <p style="max-width:480px;line-height:1.5;font-weight:bold;font-size:20px;margin-bottom:24px">
+            Are you sure you want to leave <br> myGaru secure perimeter?
+          </p>
+          <div style="display:flex;gap:16px">
+            <button id="mgConfirmYes" style="
+              padding:12px 32px;font-size:16px;cursor:pointer;font-weight:bold;
+              background:#e53935;color:#fff;border:none;border-radius:6px">
+              Yes
+            </button>
+            <button id="mgConfirmNo" style="
+              padding:12px 32px;font-size:16px;cursor:pointer;font-weight:bold;
+              background:#43a047;color:#fff;border:none;border-radius:6px">
+              No
+            </button>
+          </div>
+        `);
+
+        document.getElementById("mgConfirmYes").addEventListener("click", () => {
+          showMessage("<p>Processing your opt-out request...</p>");
+          fetch(`${API_BASE}/optout/${encodeURIComponent(otp)}`)
+            .then(res => {
+              const showEndScreen = (msgText) => {
+                showMessage(`
+                  <p style="font-size:24px;font-weight:bold;color:#ffb300;margin-bottom:20px">${msgText}</p>
+                  <a href="#" id="mgReturnLink" style="color:#fff;font-size:16px;text-decoration:underline;cursor:pointer">
+                    Return to previous page
+                  </a>
+                `);
+                document.getElementById("mgReturnLink").addEventListener("click", (e) => {
+                  e.preventDefault();
+                  if (history.length > 1) {
+                    history.back();
+                  } else {
+                    window.close();
+                  }
+                });
+              };
+
+              if (res.status === 200 || res.status === 409) {
+                showEndScreen("We are sorry you left,<br> but you can always come back.");
+              } else {
+                showMessage("<p style='color:#e53935'>An error occurred. Please try again.</p>");
+              }
+            })
+            .catch(() => {
+              showMessage("<p style='color:#e53935'>Network error or server unreachable.</p>");
+            });
+        });
+
+        document.getElementById("mgConfirmNo").addEventListener("click", () => {
+          showMessage(`
+            <p style="font-size:24px;font-weight:bold;color:#43a047;margin-bottom:20px">Right choice, thank you</p>
+            <a href="#" id="mgReturnLink" style="color:#fff;font-size:16px;text-decoration:underline;cursor:pointer">
+              Return to previous page
+            </a>
+          `);
+          document.getElementById("mgReturnLink").addEventListener("click", (e) => {
+            e.preventDefault();
+            if (history.length > 1) {
+              history.back();
+            } else {
+              window.close();
+            }
+          });
+        });
+      }
+
+      fetchIdentity(PARTNER_ID)
+        .then(({ otp, carrier }) => {
+
+          if (!otp || carrier === NULL_CARRIER) {
+            showMessage(`
+              <p style="max-width:480px;line-height:1.5;margin-bottom:20px">
+                You came from outside of the myGaru network.<br>
+                We do not know who you are and cannot manage your privacy preferences.
+              </p>
+              <a href="#" id="mgReturnLink" style="color:#fff;font-size:16px;text-decoration:underline;cursor:pointer">
+                Return to previous page
+              </a>
+            `);
+            document.getElementById("mgReturnLink").addEventListener("click", (e) => {
+              e.preventDefault();
+              if (history.length > 1) {
+                history.back();
+              } else {
+                window.close();
+              }
+            });
+            return;
+          }
+
+          fetch(`${API_BASE}/status/${encodeURIComponent(otp)}`)
+            .then(res => res.json())
+            .then(statusData => {
+              renderChoiceScreen(otp, statusData.opted_out);
+            })
+            .catch(() => {
+              renderChoiceScreen(otp, false);
+            });
+        })
+        .catch(() => {
+          showMessage(`
+            <p>Could not reach the myGaru identity service. Please try again later.</p>
+          `);
+        });
+    })();
+  </script>
+</head>
+
+</html>
